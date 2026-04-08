@@ -8,24 +8,30 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL ?? 'https://auth-backend-1ldj.onrender.com';
+  // Backend API URL
+  const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://127.0.0.1:8000';
 
+  // Generic API call helper
   const apiCall = async (endpoint, data, successMessage, Icon = CheckCircle) => {
     setLoading(true);
+
+    // Ensure endpoint does not end with a slash
+    const url = `${API_URL}${endpoint.replace(/\/$/, '')}`;
+
     try {
-      const response = await fetch(`${API_URL}${endpoint}`, {
+      console.log(`🔥 Sending request to: ${url}`, data);
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      
+
       const result = await response.json();
       setLoading(false);
 
-      if (!response.ok || result.error) {
-        throw new Error(result.error || result.detail || "Something went wrong.");
+      if (!response.ok) {
+        throw new Error(result.detail || result.error || 'Something went wrong');
       }
 
       if (successMessage && result.message) {
@@ -33,20 +39,22 @@ export const AuthProvider = ({ children }) => {
           icon: <Icon className={Icon === Info ? "text-primary-500" : "text-emerald-500"} size={20} />,
         });
       }
+
       return result;
     } catch (error) {
       setLoading(false);
-      toast.error(error.message || "Network error. Please try again.", {
+      toast.error(error.message || 'Network error. Please try again.', {
         icon: <XCircle className="text-rose-500" size={20} />,
       });
       throw error;
     }
   };
 
+  // Auth functions
   const login = async (credentials) => {
     const result = await apiCall('/login', credentials, "Login successful!", CheckCircle);
     setUser({ email: result.user?.email || credentials.email, name: result.user?.name || "User" });
-    localStorage.setItem('user', JSON.stringify({ email: credentials.email }));
+    localStorage.setItem('user', JSON.stringify({ email: credentials.email, name: result.user?.name }));
     return result;
   };
 
@@ -74,6 +82,7 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  // Load user from localStorage on app start
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
